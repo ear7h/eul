@@ -1,0 +1,304 @@
+{
+	package grammar
+
+	type Type string
+
+	const (
+		TypeFunc = Type("func")
+	)
+
+	// AstNode is an interface 
+	type AstNode interface {
+		Children() []AstNode
+	}
+
+	type Func struct {
+		IsConst bool
+		Params []string
+		Name string
+		Body string
+	}
+
+	func (fn *Func) Type() Type {
+		return TypeFunc
+	}
+
+	func (fn *Func) Eval() []float64 {
+		return nil
+	}
+
+	type PowerExpr struct {
+		Base Scalar
+		Power Scalar
+	}
+
+	func (exp PowerExpr) Children() []AstNode {
+		return []AstNode{exp.Base, exp.Power}
+	}
+
+	func (exp PowerExpr) Val() float64 {
+		return math.Pow(exp.Base.Val(), exp.Power.Val())
+	}
+
+	type MultExpr struct {
+		Left Scalar
+		Right Scalar
+	}
+
+	func (exp MultExpr) Children() []AstNode {
+		return []AstNode{exp.Left, exp.Right}
+	}
+
+	func (exp MultExpr) Val() float64 {
+		return exp.Left.Val() * exp.Right.Val()
+	}
+
+	type DivExpr struct {
+		Left Scalar
+		Right Scalar
+	}
+
+	func (exp DivExpr) Children() []AstNode {
+		return []AstNode{exp.Left, exp.Right}
+	}
+
+	func (exp DivExpr) Val() float64 {
+		return exp.Left.Val() / exp.Right.Val()
+	}
+
+	type AddExpr struct {
+		Left Scalar
+		Right Scalar
+	}
+
+	func (exp AddExpr) Children() []AstNode {
+		return []AstNode{exp.Left, exp.Right}
+	}
+
+	func (exp AddExpr) Val() float64 {
+		return exp.Left.Val() + exp.Right.Val()
+	}
+
+	type SubExpr struct {
+		Left Scalar
+		Right Scalar
+	}
+
+	func (exp SubExpr) Children() []AstNode {
+		return []AstNode{exp.Left, exp.Right}
+	}
+
+	func (exp SubExpr) Val() float64 {
+		return exp.Left.Val() - exp.Right.Val()
+	}
+
+	type Scalar interface {
+		AstNode
+		Val() float64
+	}
+
+	type ScalarLit struct {
+		val float64
+	}
+
+	func (exp ScalarLit) Children() []AstNode {
+		return []AstNode{}
+	}
+
+	func (s ScalarLit) Val() float64 {
+		return s.val
+	}
+
+	type ScalarVar struct {
+		name string
+		val * float64
+	}
+
+	func (exp ScalarVar) Children() []AstNode {
+		return []AstNode{}
+	}
+
+	func (s ScalarVar) Val() float64 {
+		return *s.val
+	}
+
+	func (s *ScalarVar) Set(f float64) {
+		s.val = &f
+	}
+
+	func (s *ScalarVar) SetLoc(f *float64) {
+		s.val = f
+	}
+
+
+}
+
+ScalarSum = first:ScalarFactor _ rest:AddExpr* {
+	restv := rest.([]interface{})
+	if len(restv) == 0 {
+		return first, nil
+	}
+
+	for i := len(restv) - 1; i > 0; i-- {
+		switch v := restv[i].(type) {
+		case *AddExpr:
+			v.Left = restv[i-1].(Scalar)
+		case *SubExpr:
+			v.Left = restv[i-1].(Scalar)
+		default:
+			// should not happen
+			return nil, fmt.Errorf("wrong type returned from AddExpr %T (%v)", v, v)
+		}
+	}
+
+	switch v := restv[0].(type) {
+	case *AddExpr:
+		v.Left = first.(Scalar)
+	case *SubExpr:
+		v.Left = first.(Scalar)
+	default:
+		// should not happen
+		return nil, fmt.Errorf("wrong type returned from AddExpr %T (%v)", v, v)
+	}
+
+	return restv[len(restv) - 1], nil
+}
+
+AddExpr = op:("+" / "-") _ arg:ScalarFactor _ {
+	if string(op.([]byte)) == "+" {
+		return &AddExpr{
+			Right: arg.(Scalar),
+		}, nil
+	} else {
+		return &SubExpr{
+			Right: arg.(Scalar),
+		}, nil
+	}
+}
+
+ScalarFactor = first:Power _ rest:MultExpr* {
+	restv := rest.([]interface{})
+	if len(restv) == 0 {
+		return first, nil
+	}
+
+	for i := len(restv) - 1; i > 0; i-- {
+		fmt.Println("ScalarFactor loop: ", restv[i])
+		switch v := restv[i].(type) {
+		case *MultExpr:
+			v.Left = restv[i-1].(Scalar)
+		case *DivExpr:
+			v.Left = restv[i-1].(Scalar)
+		default:
+			// should not happen
+			return nil, fmt.Errorf("wrong type returned from MultExpr %T (%v)", v, v)
+		}
+	}
+
+	switch v := restv[0].(type) {
+	case *MultExpr:
+		v.Left = first.(Scalar)
+	case *DivExpr:
+		v.Left = first.(Scalar)
+	default:
+		// should not happen
+		return nil, fmt.Errorf("wrong type returned from MultExpr %T (%v)", v, v)
+	}
+
+	return restv[len(restv) - 1], nil
+}
+
+MultExpr = op:("*" / "/") _ arg:Power _ {
+	if string(op.([]byte)) == "*" {
+		return &MultExpr{
+			Right: arg.(Scalar),
+		}, nil
+	} else {
+		return &DivExpr{
+			Right: arg.(Scalar),
+		}, nil
+	}
+}
+
+Power = first:Scalar _ rest:PowerExpr* {
+	restv := rest.([]interface{})
+	if len(restv) == 0 {
+		return first, nil
+	}
+
+	ret := PowerExpr{
+		Base: first.(Scalar),
+	}
+	curs := &ret
+
+	for _, v := range restv[:len(restv) - 1] {
+		fmt.Println("power rest: ", v)
+		curs.Power = &PowerExpr{
+			Base: v.(Scalar),
+		}
+		curs = curs.Power.(*PowerExpr)
+	}
+
+	curs.Power = restv[len(restv) - 1].(Scalar)
+
+	return ret, nil
+}
+
+PowerExpr = "^" _ power:Scalar _ {
+	return power, nil
+}
+
+Scalar = ident:Ident {
+	fmt.Println("scalar var: ", string(c.text))
+	return &ScalarVar{name:ident.(string)}, nil
+} / num:Number {
+	fmt.Println("scalar lit: ", string(c.text))
+	return ScalarLit{val: num.(float64)}, nil
+}
+
+Number = [0-9]* ( "." [0-9]*)? {
+	return strconv.ParseFloat(string(c.text), 32)
+}
+
+Assign = prefix:("def" / "let") _ name:Ident _ params:Params _ "=" _ Expr{
+	ret := Func{
+		Params: params.([]string),
+		Name: name.(string),
+	}
+
+	if string(prefix.([]byte)) == "def" {
+		ret.IsConst = true
+	}
+
+
+	return ret, nil
+}
+
+Vector = "[" _ Ident? ("," Ident)* _ "]"
+
+
+
+Params = "(" _ first:Ident? rest:( _ "," _ Ident)* _ ")" {
+	ret := []string{}
+	if first == nil {
+		return ret, nil
+	} else {
+		ret = append(ret, first.(string))
+	}
+
+	if rest != nil {
+		restv := rest.([]interface{})
+		for _, v := range restv {
+			param := v.([]interface{})
+			ret = append(ret, param[3].(string))
+		}
+	}
+
+	return ret, nil
+}
+
+Ident = [a-z]i ([a-z0-9]i)* {
+	return string(c.text), nil
+}
+
+_ = [ \t]*
