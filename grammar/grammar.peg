@@ -249,10 +249,10 @@ PowerExpr = "^" _ power:Scalar _ {
 }
 
 Scalar = ident:Ident {
-	fmt.Println("scalar var: ", string(c.text))
+	//fmt.Println("scalar var: ", string(c.text))
 	return &ScalarVar{name:ident.(string)}, nil
 } / num:Number {
-	fmt.Println("scalar lit: ", string(c.text))
+	//fmt.Println("scalar lit: ", string(c.text))
 	return ScalarLit{val: num.(float64)}, nil
 }
 
