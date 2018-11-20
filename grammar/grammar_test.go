@@ -7,7 +7,7 @@ import (
 )
 
 func TestGrammar(t *testing.T) {
-	testStr := `x ^ 2`
+	testStr := `1 /- (x ^ 2)`
 
 	tree, err := ParseReader("", strings.NewReader(testStr))
 	if err != nil {

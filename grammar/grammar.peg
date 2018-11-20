@@ -130,10 +130,34 @@
 		s.val = f
 	}
 
+	type Vector struct {
+		Comps []Scalar
+	}
+
+	func (v *Vector) Dims() int {
+		return len(v.Comps)
+	}
+
+	var ZeroVector = &Vector{}
 
 }
 
-ScalarSum = first:ScalarFactor _ rest:AddExpr* {
+Vector = "[" _ first:ScalarExpr? rest:(_ "," _ ScalarExpr)* _ "]" {
+	if first == nil {
+		return ZeroVector, nil
+	}
+
+	comps := []Scalar{first.(Scalar)}
+
+	restv := rest.([]interface{})
+	for _, v := range restv {
+		comps = append(comps, v.([]interface{})[3].(Scalar))
+	}
+
+	return &Vector{Comps:comps}
+}
+
+ScalarExpr = first:ScalarFactor _ rest:AddExpr* {
 	restv := rest.([]interface{})
 	if len(restv) == 0 {
 		return first, nil
@@ -232,7 +256,7 @@ Power = first:Scalar _ rest:PowerExpr* {
 	curs := &ret
 
 	for _, v := range restv[:len(restv) - 1] {
-		fmt.Println("power rest: ", v)
+		//fmt.Println("power rest: ", v)
 		curs.Power = &PowerExpr{
 			Base: v.(Scalar),
 		}
@@ -248,16 +272,24 @@ PowerExpr = "^" _ power:Scalar _ {
 	return power, nil
 }
 
-Scalar = ident:Ident {
-	//fmt.Println("scalar var: ", string(c.text))
+Scalar = "(" _ expr:ScalarExpr _ ")" {
+	return expr, nil
+} / ident:Ident {
+	fmt.Println("scalar var: ", string(c.text))
 	return &ScalarVar{name:ident.(string)}, nil
 } / num:Number {
-	//fmt.Println("scalar lit: ", string(c.text))
+	fmt.Println("scalar lit: ", string(c.text))
 	return ScalarLit{val: num.(float64)}, nil
+} / "-" _ scalar:Scalar {
+	return &MultExpr{
+		Left: ScalarLit{val: -1.0},
+		Right: scalar.(Scalar),
+	}, nil
 }
 
-Number = [0-9]* ( "." [0-9]*)? {
-	return strconv.ParseFloat(string(c.text), 32)
+Number = [0-9]+ ( "." [0-9]*)? {
+	fmt.Println("Number: ", string(c.text))
+	return strconv.ParseFloat(string(c.text), 64)
 }
 
 Assign = prefix:("def" / "let") _ name:Ident _ params:Params _ "=" _ Expr{
@@ -274,28 +306,24 @@ Assign = prefix:("def" / "let") _ name:Ident _ params:Params _ "=" _ Expr{
 	return ret, nil
 }
 
-Vector = "[" _ Ident? ("," Ident)* _ "]"
+// Params = "(" _ first:Ident? rest:( _ "," _ Ident)* _ ")" {
+// 	ret := []string{}
+// 	if first == nil {
+// 		return ret, nil
+// 	} else {
+// 		ret = append(ret, first.(string))
+// 	}
 
+// 	if rest != nil {
+// 		restv := rest.([]interface{})
+// 		for _, v := range restv {
+// 			param := v.([]interface{})
+// 			ret = append(ret, param[3].(string))
+// 		}
+// 	}
 
-
-Params = "(" _ first:Ident? rest:( _ "," _ Ident)* _ ")" {
-	ret := []string{}
-	if first == nil {
-		return ret, nil
-	} else {
-		ret = append(ret, first.(string))
-	}
-
-	if rest != nil {
-		restv := rest.([]interface{})
-		for _, v := range restv {
-			param := v.([]interface{})
-			ret = append(ret, param[3].(string))
-		}
-	}
-
-	return ret, nil
-}
+// 	return ret, nil
+// }
 
 Ident = [a-z]i ([a-z0-9]i)* {
 	return string(c.text), nil
