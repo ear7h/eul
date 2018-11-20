@@ -115,3 +115,60 @@ func TestDefIntegrate(t *testing.T) {
 		})
 	}
 }
+
+func TestIteratedIntegral(t *testing.T) {
+	type tcase struct {
+		limits [][2]float64
+		fn     RealNFunc
+		d      []float64
+		eps    []float64
+		result []float64
+	}
+
+	fn := func(tc tcase, t *testing.T) {
+		result := IteratedIntegral(tc.limits, tc.fn, tc.d)
+		for k, v := range tc.result {
+			if !Apprx(result[k], v, tc.eps[k]) {
+				t.Fatalf("incorect result[%d] %e not %e +- %e",
+					k, result[k], v, tc.eps[k])
+			}
+		}
+	}
+
+	testcases := map[string]tcase{
+		"unit cube": {
+			limits: [][2]float64{{0, 1}, {0, 1}},
+			fn: RealNFunc{
+				Fn: func([]float64) []float64 {
+					return []float64{1}
+				},
+				Dmn: 2, Rng: 1,
+			},
+			d:      []float64{0.001, 0.001},
+			eps:    []float64{0.001},
+			result: []float64{1.0},
+		},
+		"unit 3 sphere": {
+			limits: [][2]float64{
+				{0, 1},
+				{0, 2 * math.Pi},
+				{0, math.Pi}},
+			fn: RealNFunc{
+				// f(rho, theta, phi)
+				Fn: func(args []float64) []float64 {
+					return []float64{args[0] * args[0] * math.Sin(args[2])}
+				},
+				Dmn: 3, Rng: 1,
+			},
+			d:      []float64{0.01, 0.01, 0.01},
+			eps:    []float64{0.1},
+			result: []float64{(4.0 / 3.0) * math.Pi},
+		},
+	}
+
+	for k, v := range testcases {
+		t.Run(k, func(t *testing.T) {
+			fn(v, t)
+		})
+	}
+}
