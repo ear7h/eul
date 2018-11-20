@@ -107,7 +107,7 @@ func Integrate(fn RealFunc, d float64) RealFunc {
 	}
 }
 
-// Integrate is a second order function which returns
+// Derive is a second order function which returns
 // a function approximating derivative of the
 // argument fn. d is the infitesimal change in inputs to
 // fn.

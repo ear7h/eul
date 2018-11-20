@@ -10,7 +10,7 @@ Bc 5 letters is too much
 3. function assignment/definition
 4. ~riemann integrator~
 5. ~dynamic integrator~
-6. ~riemann integrator for functions on R<sup>n</sup>~ 
+6. ~iterated riemann integrator for functions on R<sup>n</sup>~ 
 
 ## resources
 
